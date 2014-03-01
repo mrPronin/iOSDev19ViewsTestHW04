@@ -17,6 +17,8 @@
 @property (assign, nonatomic) NSUInteger screenMax;
 @property (assign, nonatomic) NSUInteger cellSize;
 @property (assign, nonatomic) NSUInteger fieldSize;
+@property (strong, nonatomic) NSMutableArray* cells;
+@property (strong, nonatomic) NSMutableArray* checkers;
 
 @end
 
@@ -29,6 +31,8 @@
     [self initializeProperties];
     
     [self drawChessboard];
+    
+    [self drawCheckers];
 }
 
 - (void)didReceiveMemoryWarning
@@ -43,7 +47,7 @@
 
 - (void) didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
     
-    [self changeColor];
+    [self shuffleCheckers];
     
 }
 
@@ -59,26 +63,19 @@
     // calculate cell size and field size
     self.cellSize               = (self.screenMin - self.borderOffset * 2 - 4) / self.cellCount;
     self.fieldSize              = self.cellSize * self.cellCount + 4;
+    
+    self.cells                  = [NSMutableArray array];
+    self.checkers               = [NSMutableArray array];
 }
 
 - (void) drawChessboard {
     // set initial coordinates
     CGRect rect;
-    NSUInteger x = 0;
-    NSUInteger y = 0;
-    if (CGRectGetWidth(self.view.bounds) < CGRectGetHeight(self.view.bounds)) {
-        // portrait or upside down
-        x = (self.screenMin - self.fieldSize) / 2;
-        y = (self.screenMax - self.screenMin) / 2;
-    } else {
-        // landscape (left or right)
-        x = (self.screenMax - self.screenMin) / 2;
-        y = (self.screenMin - self.fieldSize) / 2;
-    }
     
     // set border (black box)
-    rect = CGRectMake(x, y, self.fieldSize, self.fieldSize);
+    rect = CGRectMake(0, 0, self.fieldSize, self.fieldSize);
     self.chessboard = [[UIView alloc] initWithFrame:rect];
+    self.chessboard.center = CGPointMake(CGRectGetWidth(self.view.bounds) / 2, CGRectGetHeight(self.view.bounds) / 2);
     self.chessboard.backgroundColor = [UIColor blackColor];
     self.chessboard.autoresizingMask =  UIViewAutoresizingFlexibleTopMargin |
     UIViewAutoresizingFlexibleRightMargin |
@@ -100,6 +97,8 @@
     
     // draw cells
     UIView *view =  nil;
+    NSUInteger x = 0;
+    NSUInteger y = 0;
     y = 1;
     for (int i = 0; i < self.cellCount; i++) {
         
@@ -110,6 +109,8 @@
             rect                    = CGRectMake(x, y, self.cellSize, self.cellSize);
             view                    = [[UIView alloc] initWithFrame:rect];
             view.backgroundColor    = [UIColor blackColor];
+            __weak UIView* weakView = view;
+            [self.cells addObject:weakView];
             [whiteBox addSubview:view];
             
             x+= self.cellSize * 2;
@@ -117,6 +118,54 @@
         
         y+= self.cellSize;
     }
+}
+
+- (void) drawCheckers {
+    
+    NSUInteger checkersCount        = self.cellCount / 2 * 3;
+    NSUInteger checkerSize          = self.cellSize / 2;
+    
+    NSUInteger i = 0;
+    for (UIView* cell in self.cells) {
+        
+        if (i < checkersCount) {
+            // white checker
+            CGRect rect             = CGRectMake(0, 0, checkerSize, checkerSize);
+            UIView* checker         = [[UIView alloc] initWithFrame:rect];
+            checker.backgroundColor = [UIColor whiteColor];
+            checker.center          = cell.center;
+            __weak UIView* weakView = checker;
+            [self.checkers addObject:weakView];
+            [self.chessboard addSubview:checker];
+        }
+        
+        if (i >= ([self.cells count] - checkersCount)) {
+            // red checker
+            CGRect rect             = CGRectMake(0, 0, checkerSize, checkerSize);
+            UIView* checker         = [[UIView alloc] initWithFrame:rect];
+            checker.backgroundColor = [UIColor redColor];
+            checker.center          = cell.center;
+            __weak UIView* weakView = checker;
+            [self.checkers addObject:weakView];
+            [self.chessboard addSubview:checker];
+        }
+        
+        i++;
+    }
+}
+
+- (void) shuffleCheckers {
+    
+    NSMutableArray* cells           = [NSMutableArray arrayWithArray:self.cells];
+    
+    for (UIView* checker in self.checkers) {
+        NSUInteger emptyCells       = [cells count];
+        NSUInteger cellIndex        = arc4random() % emptyCells;
+        UIView* cell                = cells[cellIndex];
+        checker.center              = cell.center;
+        [cells removeObjectAtIndex:cellIndex];
+    }
+    
 }
 
 - (void) changeColor {
